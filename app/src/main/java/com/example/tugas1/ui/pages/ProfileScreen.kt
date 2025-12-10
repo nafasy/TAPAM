@@ -14,8 +14,6 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,21 +26,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
-import com.example.tugas1.data.remote.SupabaseClient
 import com.example.tugas1.viewmodel.AuthViewModel
 import com.example.tugas1.viewmodel.ProfileViewModel
-import io.github.jan.supabase.storage.storage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     navController: NavHostController,
-    authViewModel: AuthViewModel,
-    profileViewModel: ProfileViewModel
+    // 1. Parameter authViewModel dihapus
+    // authViewModel: AuthViewModel,
+    profileViewModel: ProfileViewModel,
+    // 2. Tambahkan lambda untuk aksi logout
+    onLogout: () -> Unit
 ) {
     val profile by profileViewModel.profile.collectAsState()
     val loading by profileViewModel.loading.collectAsState()
-    val isAuthenticated by authViewModel.authState.collectAsState()
     val context = LocalContext.current
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -57,50 +55,36 @@ fun ProfileScreen(
         }
     )
 
-    LaunchedEffect(isAuthenticated) {
-        if (!isAuthenticated) {
-            navController.navigate("auth_graph") {
-                popUpTo("main_graph") { inclusive = true }
-            }
-        }
-    }
+    // Logika auto-navigate saat !isAuthenticated sudah dipindahkan ke MainActivity, jadi bisa dihapus dari sini.
+    // LaunchedEffect(isAuthenticated) { ... }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Profile") })
+            // Kita bisa menggunakan TopAppBar bawaan Scaffold di sini
+            TopAppBar(
+                title = { Text("Profile") },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            )
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
+                .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (loading && profile == null) {
-                CircularProgressIndicator()
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             } else {
                 Spacer(modifier = Modifier.height(16.dp))
                 Box(contentAlignment = Alignment.BottomEnd) {
-
-                    // --- PERBAIKAN DI SINI ---
-                    // State untuk menampung URL gambar yang akan ditampilkan
-                    var avatarDisplayUrl by remember { mutableStateOf<String?>(null) }
-
-                    // LaunchedEffect untuk mendapatkan URL publik saat path avatar berubah
-                    LaunchedEffect(profile?.avatarUrl) {
-                        profile?.avatarUrl?.let { path ->
-                            // Panggil nama fungsi yang benar: getAvatarPublicUrl
-                            profileViewModel.getAvatarPublicUrl(path).collect { url ->
-                                avatarDisplayUrl = url
-                            }
-                        }
-                    }
-                    // ------------------------
-
                     Image(
+                        // Langsung gunakan avatar_url dari model Profile
                         painter = rememberAsyncImagePainter(
-                            model = avatarDisplayUrl ?: "https://i.pravatar.cc/150" // URL default
+                            model = profile?.avatar_url ?: "https://i.pravatar.cc/150"
                         ),
                         contentDescription = "Profile Picture",
                         modifier = Modifier
@@ -139,15 +123,16 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
+                // Menggunakan route "edit_profile" yang sudah kita definisikan di NavHost
                 ProfileMenuItem(
                     icon = Icons.Default.Person,
                     title = "Edit Profile",
-                    onClick = { navController.navigate("editProfile") }
+                    onClick = { navController.navigate("edit_profile") }
                 )
                 ProfileMenuItem(
                     icon = Icons.Default.Notifications,
                     title = "Notification",
-                    onClick = { navController.navigate("notification") }
+                    onClick = { /* navController.navigate("notification") */ }
                 )
                 ProfileMenuItem(
                     icon = Icons.Default.PinDrop,
@@ -162,11 +147,12 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
+                // 3. Tombol Sign Out sekarang memanggil onLogout lambda
                 Button(
-                    onClick = { authViewModel.logout() },
+                    onClick = onLogout,
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.medium,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF0F0F0))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEEEEE))
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Sign Out", tint = Color.Red)
@@ -180,7 +166,7 @@ fun ProfileScreen(
     }
 }
 
-// Composable ProfileMenuItem tidak perlu diubah
+// Composable ProfileMenuItem tidak ada perubahan
 @Composable
 fun ProfileMenuItem(icon: ImageVector, title: String, onClick: () -> Unit) {
     Row(
@@ -190,7 +176,7 @@ fun ProfileMenuItem(icon: ImageVector, title: String, onClick: () -> Unit) {
             .padding(vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(imageVector = icon, contentDescription = title, tint = Color(0xFF4A55A2))
+        Icon(imageVector = icon, contentDescription = title, tint = Color.Gray)
         Spacer(modifier = Modifier.width(16.dp))
         Text(text = title, style = MaterialTheme.typography.bodyLarge)
         Spacer(modifier = Modifier.weight(1f))

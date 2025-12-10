@@ -12,6 +12,6 @@ data class Profile(
 
     val username: String? = null,
 
-    @SerialName("avatar_url")
-    val avatarUrl: String? = null
+    @SerialName("avatar_url") // Anotasi ini memetakan ke kolom 'avatar_url' di Supabase
+    val avatar_url: String? = null // Propert
 )
