@@ -13,13 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -28,11 +23,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.currentBackStackEntryAsState
 import coil.compose.rememberAsyncImagePainter
-import com.example.tugas1.ui.nav.BottomNavItem
-import com.example.tugas1.viewmodel.ProductViewModel
 import com.example.tugas1.R
+// Import Composable yang baru dibuat
+import com.example.tugas1.ui.nav.AppBottomNavigation
+import com.example.tugas1.viewmodel.ProductViewModel
 
 // Data class untuk merepresentasikan produk
 data class Product(
@@ -44,67 +39,54 @@ data class Product(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(navController: NavController, productViewModel: ProductViewModel) {
+            // Konten Atas (Logo dan Ikon Keranjang)
+            TopBarContent(
+                onCartClick = { navController.navigate("cart") }
+            )
 
-    // Daftar item untuk bottom navigation tidak perlu diubah.
-    val bottomNavItems = listOf(
-        BottomNavItem("Home", Icons.Default.Home, "dashboard"),
-        BottomNavItem("Cart", Icons.Default.ShoppingCart, "cart"),
-        BottomNavItem("Wishlist", Icons.Default.Favorite, "wishlist"),
-        // --- TAMBAHKAN KEMBALI DUA BARIS INI ---
-        BottomNavItem("Chat", Icons.Default.Chat, "chat"),
-        BottomNavItem("Checkout", Icons.Default.Check, "checkout"),
-        // ------------------------------------
-        BottomNavItem("Profile", Icons.Default.Person, "profile")
-    )
-
-    // State untuk mengetahui layar mana yang sedang aktif
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
-
-    Scaffold(
-        // Kita tidak memakai TopAppBar di desain baru
-        bottomBar = {
-            NavigationBar {
-                bottomNavItems.forEach { item ->
-                    NavigationBarItem(
-                        // `selected` sekarang dinamis, akan menyorot ikon yang aktif
-                        selected = currentRoute == item.route,
-                        onClick = {
-                            navController.navigate(item.route) {
-                                // Pop up to the start destination of the graph to
-                                // avoid building up a large stack of destinations
-                                // on the back stack as users select items
-                                popUpTo(navController.graph.startDestinationId) {
-                                    saveState = true
-                                }
-                                // Avoid multiple copies of the same destination when
-                                // reselecting the same item
-                                launchSingleTop = true
-                                // Restore state when reselecting a previously selected item
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(item.icon, contentDescription = item.title) },
-                        label = { Text(item.title) }
-                    )
+            // Konten Utama (Scrollable)
+            DashboardContent(
+                modifier = Modifier.fillMaxSize(), // DashboardContent mengisi sisa ruang
+                onProductClick = {
+                    // TODO: Navigasi ke halaman detail produk
                 }
-            }
+            )
         }
-    ) { paddingValues ->
-        // Konten utama sekarang adalah LazyColumn yang berisi semua elemen
-        DashboardContent(
-            modifier = Modifier.padding(paddingValues),
-            onProductClick = {
-                // TODO: Navigasi ke halaman detail produk
-            }
+
+// --- Composable lainnya (TopBarContent, DashboardContent, ProductCard) tetap sama ---
+// ... (Kode untuk TopBarContent, DashboardContent, dan ProductCard tidak perlu diubah) ...
+
+// --- COMPOSABLE BARU UNTUK BAGIAN ATAS ---
+@Composable
+fun TopBarContent(onCartClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp), // Beri padding
+        horizontalArrangement = Arrangement.SpaceBetween, // Mendorong item ke ujung
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Logo di kiri
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "H&M Logo",
+            modifier = Modifier.height(35.dp), // Sesuaikan ukuran logo
+            contentScale = ContentScale.Fit
         )
+
+        // Ikon Keranjang di kanan
+        IconButton(onClick = onCartClick) {
+            Icon(
+                imageVector = Icons.Default.ShoppingCart,
+                contentDescription = "Open Cart"
+            )
+        }
     }
 }
 
+
 @Composable
 fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) -> Unit) {
-
-    // Data dummy untuk produk, kita gunakan URL gambar dari placeholder
     val newArrivals = listOf(
         Product("Succulent Plant", "PLANTS", "https://i.imgur.com/gX2L9aJ.png"),
         Product("Mobile Lens", "GEAR", "https://i.imgur.com/9vL2dF6.png"),
@@ -118,11 +100,11 @@ fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) ->
     )
 
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        // Kita atur padding global di sini, bukan di dalam item
-        contentPadding = PaddingValues(vertical = 24.dp)
+        modifier = modifier, // Modifier sekarang dilewatkan dari parent
+        contentPadding = PaddingValues(bottom = 24.dp) // Padding atas sudah diatur di TopBarContent
     ) {
-        // == Item 1: Banner Utama ==
+        // == Item 1: Banner Utama (Teks dan Tombol Read More) ==
+        // Logo sudah dipindahkan ke TopBarContent, jadi kita hanya tampilkan teks dan tombol
         item {
             Column(
                 modifier = Modifier
@@ -130,20 +112,8 @@ fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) ->
                     .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
-                // --- PERBAIKAN: Ganti teks dengan gambar logo ---
-                Image(
-                    // Mengambil gambar dari folder res/drawable
-                    painter = painterResource(id = R.drawable.logo), // Ganti 'hm_logo' dengan nama file Anda
-                    contentDescription = "H&M Logo",
-                    modifier = Modifier
-                        .height(50.dp) // Atur tinggi logo sesuai keinginan Anda
-                        .fillMaxWidth(),
-                    contentScale = ContentScale.Fit // Gunakan ContentScale.Fit agar logo tidak terpotong
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-                // Tombol "Read More"
+                // Teks di bawah logo (jika ada) bisa ditaruh di sini
+                // Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(onClick = { /*TODO*/ }) {
                     Text("READ MORE")
                 }
@@ -179,18 +149,15 @@ fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) ->
 
         // == Item 3: Grid Produk ==
         item {
-            // Kita gunakan LazyVerticalGrid di dalam LazyColumn
-            // Perhatikan penggunaan `userScrollEnabled = false` dan pengaturan tinggi
             LazyVerticalGrid(
-                columns = GridCells.Fixed(2), // 2 kolom seperti di desain
+                columns = GridCells.Fixed(2),
                 modifier = Modifier
                     .fillMaxWidth()
-                    // Tinggi grid dihitung berdasarkan jumlah baris
                     .height(((newArrivals.size + 1) / 2 * 280).dp)
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                userScrollEnabled = false // Scrolling dikontrol oleh LazyColumn luar
+                userScrollEnabled = false
             ) {
                 items(newArrivals) { product ->
                     ProductCard(product = product, onClick = { onProductClick(product) })
@@ -244,17 +211,15 @@ fun ProductCard(product: Product, onClick: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Gambar Produk
             Image(
                 painter = rememberAsyncImagePainter(product.imageUrl),
                 contentDescription = product.name,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f) // Membuat gambar menjadi persegi
+                    .aspectRatio(1f)
                     .background(Color(0xFFF5F5F5)),
                 contentScale = ContentScale.Fit
             )
-            // Detail Produk
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
