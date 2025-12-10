@@ -10,7 +10,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,8 +25,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.tugas1.R
-// Import Composable yang baru dibuat
-import com.example.tugas1.ui.nav.AppBottomNavigation
 import com.example.tugas1.viewmodel.ProductViewModel
 
 // Data class untuk merepresentasikan produk
@@ -39,54 +37,70 @@ data class Product(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(navController: NavController, productViewModel: ProductViewModel) {
-            // Konten Atas (Logo dan Ikon Keranjang)
+    // SOLUSI: Gunakan Scaffold untuk struktur layar yang benar.
+    Scaffold(
+        // Tempatkan TopBarContent di dalam slot `topBar` agar posisinya tetap di atas.
+        topBar = {
             TopBarContent(
                 onCartClick = { navController.navigate("cart") }
             )
-
-            // Konten Utama (Scrollable)
-            DashboardContent(
-                modifier = Modifier.fillMaxSize(), // DashboardContent mengisi sisa ruang
-                onProductClick = {
-                    // TODO: Navigasi ke halaman detail produk
-                }
-            )
         }
+        // Jika nanti Anda memiliki bottom navigation, Anda bisa menambahkannya di sini:
+        // bottomBar = { AppBottomNavigation(...) }
+    ) { innerPadding ->
+        // `innerPadding` adalah padding yang disediakan oleh Scaffold untuk memastikan
+        // konten tidak tumpang tindih dengan topBar atau bottomBar.
 
-// --- Composable lainnya (TopBarContent, DashboardContent, ProductCard) tetap sama ---
-// ... (Kode untuk TopBarContent, DashboardContent, dan ProductCard tidak perlu diubah) ...
+        // Tempatkan konten utama layar di sini.
+        DashboardContent(
+            // Terapkan padding dari Scaffold ke modifier konten.
+            modifier = Modifier.padding(innerPadding),
+            onProductClick = { product ->
+                // TODO: Navigasi ke halaman detail produk
+                // Contoh: navController.navigate("productDetail/${product.name}")
+            }
+        )
+    }
+}
 
-// --- COMPOSABLE BARU UNTUK BAGIAN ATAS ---
+// --- COMPOSABLE UNTUK BAGIAN ATAS (TOP BAR) ---
 @Composable
 fun TopBarContent(onCartClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp), // Beri padding
-        horizontalArrangement = Arrangement.SpaceBetween, // Mendorong item ke ujung
-        verticalAlignment = Alignment.CenterVertically
+    // Tidak ada perubahan di sini, sudah bagus.
+    // Menambahkan background untuk memastikan warnanya konsisten jika tema berubah.
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shadowElevation = 4.dp // Optional: Menambah bayangan tipis di bawah top bar
     ) {
-        // Logo di kiri
-        Image(
-            painter = painterResource(id = R.drawable.logo),
-            contentDescription = "H&M Logo",
-            modifier = Modifier.height(35.dp), // Sesuaikan ukuran logo
-            contentScale = ContentScale.Fit
-        )
-
-        // Ikon Keranjang di kanan
-        IconButton(onClick = onCartClick) {
-            Icon(
-                imageVector = Icons.Default.ShoppingCart,
-                contentDescription = "Open Cart"
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface) // Gunakan warna dari tema
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.logo),
+                contentDescription = "H&M Logo",
+                modifier = Modifier.height(35.dp),
+                contentScale = ContentScale.Fit
             )
+            IconButton(onClick = onCartClick) {
+                Icon(
+                    imageVector = Icons.Default.ShoppingCart,
+                    contentDescription = "Open Cart"
+                )
+            }
         }
     }
 }
 
 
+// --- COMPOSABLE UNTUK KONTEN UTAMA ---
 @Composable
 fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) -> Unit) {
+    // Tidak ada perubahan besar di sini, hanya menerima modifier dari parent.
     val newArrivals = listOf(
         Product("Succulent Plant", "PLANTS", "https://i.imgur.com/gX2L9aJ.png"),
         Product("Mobile Lens", "GEAR", "https://i.imgur.com/9vL2dF6.png"),
@@ -100,20 +114,17 @@ fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) ->
     )
 
     LazyColumn(
-        modifier = modifier, // Modifier sekarang dilewatkan dari parent
-        contentPadding = PaddingValues(bottom = 24.dp) // Padding atas sudah diatur di TopBarContent
+        modifier = modifier, // Modifier ini sekarang berisi padding dari Scaffold
+        contentPadding = PaddingValues(bottom = 24.dp)
     ) {
-        // == Item 1: Banner Utama (Teks dan Tombol Read More) ==
-        // Logo sudah dipindahkan ke TopBarContent, jadi kita hanya tampilkan teks dan tombol
         item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = 24.dp)
+                    .padding(top = 16.dp), // Menambah sedikit padding atas
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Teks di bawah logo (jika ada) bisa ditaruh di sini
-                // Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(onClick = { /*TODO*/ }) {
                     Text("READ MORE")
                 }
@@ -124,7 +135,6 @@ fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) ->
             Spacer(modifier = Modifier.height(48.dp))
         }
 
-        // == Item 2: Judul "NEW ARRIVALS" ==
         item {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -147,7 +157,6 @@ fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) ->
             }
         }
 
-        // == Item 3: Grid Produk ==
         item {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
@@ -169,7 +178,6 @@ fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) ->
             Spacer(modifier = Modifier.height(48.dp))
         }
 
-        // == Item 4: Banner Diskon ==
         item {
             Column(
                 modifier = Modifier
@@ -201,6 +209,7 @@ fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) ->
 
 @Composable
 fun ProductCard(product: Product, onClick: () -> Unit) {
+    // Tidak ada perubahan di sini, sudah bagus.
     Card(
         modifier = Modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
