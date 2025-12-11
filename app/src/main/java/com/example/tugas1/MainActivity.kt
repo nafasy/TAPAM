@@ -43,7 +43,9 @@ fun MyApp() {
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute in listOf("dashboard", "wishlist", "chat", "profile")
+
+    // DIUBAH: Ganti "wishlist" menjadi "order_history"
+    val showBottomBar = currentRoute in listOf("dashboard", "order_history", "chat", "profile")
 
     Scaffold(
         bottomBar = {
@@ -60,15 +62,14 @@ fun MyApp() {
         )
     }
 
+    // Blok LaunchedEffect ini tidak perlu diubah, sudah benar.
     LaunchedEffect(isAuthenticated) {
         if (isAuthenticated) {
-            // Memanggil nama fungsi yang benar: loadProfile
             profileViewModel.loadProfile()
             if (navController.currentDestination?.parent?.route != "main_graph") {
                 navController.navigate("main_graph") { popUpTo(0) }
             }
         } else {
-            // Memanggil nama fungsi yang benar: clearProfile
             profileViewModel.clearProfile()
             if (navController.currentDestination?.parent?.route != "auth_graph") {
                 navController.navigate("auth_graph") { popUpTo(0) }
@@ -91,27 +92,31 @@ fun AppNavHost(
         startDestination = "auth_graph",
         modifier = modifier
     ) {
+        // --- Graph untuk Autentikasi (Login/Register) ---
         navigation(startDestination = "login", route = "auth_graph") {
             composable("login") { LoginScreen(navController, authViewModel) }
             composable("register") { RegisterScreen(navController, authViewModel) }
         }
 
+        // --- Graph Utama Aplikasi (Setelah Login) ---
         navigation(startDestination = "dashboard", route = "main_graph") {
             composable("dashboard") { DashboardScreen(navController, productViewModel) }
-            composable("wishlist") { /* ... */ }
-            composable("chat") { /* ... */ }
+
+            // DIUBAH: Ganti "wishlist" dengan "order_history"
+            composable("order_history") { OrderHistoryScreen(navController) }
+
+            composable("chat") { /* TODO: Buat ChatScreen */ }
 
             composable("profile") {
-                // Sekarang kita memberikan parameter onLogout, dan tidak lagi memberikan authViewModel
                 ProfileScreen(
                     navController = navController,
                     profileViewModel = profileViewModel,
-                    onLogout = { authViewModel.logout() } // Aksi logout diteruskan dari sini
+                    onLogout = { authViewModel.logout() }
                 )
             }
 
             composable("cart") { CartScreen(navController, productViewModel) }
-            composable("checkout") { /* ... */ }
+            composable("checkout") { /* TODO: Buat CheckoutScreen */ }
 
             composable("edit_profile") {
                 EditProfileScreen(
@@ -119,7 +124,18 @@ fun AppNavHost(
                     profileViewModel = profileViewModel
                 )
             }
-            composable("productDetail/{productId}") { /* ... */ }
+
+            composable(
+                route = "submit_review/{orderId}",
+                arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId")
+                if (orderId != null) {
+                    // Panggil Composable yang baru kita buat
+                    SubmitReviewScreen(navController = navController, orderId = orderId)
+                }
+            }
+
         }
     }
 }

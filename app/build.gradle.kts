@@ -64,11 +64,16 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     // Supabase
-    implementation(platform("io.github.jan-tennert.supabase:bom:2.5.1"))
+    // Menggunakan BOM untuk mengatur versi semua modul Supabase secara otomatis
+    implementation(platform("io.github.jan-tennert.supabase:bom:2.5.4"))
+
+    // Modul-modul Supabase (TANPA nomor versi manual dan dengan nama -kt yang benar)
     implementation("io.github.jan-tennert.supabase:gotrue-kt")
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:storage-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
+
+    // Ktor (dibutuhkan oleh Supabase)
     implementation("io.ktor:ktor-client-android:2.3.6")
 
     // Testing
@@ -79,5 +84,4 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-
 }
