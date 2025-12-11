@@ -63,6 +63,10 @@ fun CartScreen(navController: NavHostController, productViewModel: ProductViewMo
     // Hitung total harga berdasarkan kuantitas dan harga diskon
     val totalPrice = cartItems.sumOf { it.discountedPrice() * it.quantity }
 
+    LaunchedEffect(totalPrice) {
+        productViewModel.setCartTotal(totalPrice)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

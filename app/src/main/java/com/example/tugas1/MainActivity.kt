@@ -102,6 +102,10 @@ fun MyApp() {
                     CheckoutScreen(navController, productViewModel)
                 }
 
+                composable("order_success") {
+                    OrderSuccessScreen(navController)
+                }
+
                 composable(
                     route = "productDetail/{productId}",
                     arguments = listOf(navArgument("productId") { type = NavType.StringType })
