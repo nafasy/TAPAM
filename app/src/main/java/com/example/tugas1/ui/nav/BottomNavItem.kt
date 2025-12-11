@@ -1,7 +1,11 @@
 package com.example.tugas1.ui.nav
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+// DITAMBAHKAN: Import ikon yang relevan
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ReceiptLong // Ikon baru untuk Riwayat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -12,42 +16,51 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 
-// 1. Data class untuk merepresentasikan setiap item di Bottom Navigation Bar
+// Data class ini tidak perlu diubah, sudah benar.
 data class BottomNavItem(
     val title: String,
     val icon: ImageVector,
     val route: String
 )
 
-// 2. Composable untuk Bottom Navigation Bar yang bisa digunakan di mana saja
 @Composable
 fun AppBottomNavigation(navController: NavController) {
-    // Daftar item navigasi
+    // DIUBAH: Daftar item navigasi diperbarui.
     val bottomNavItems = listOf(
-        BottomNavItem("Home", Icons.Default.Home, "dashboard"),
-        BottomNavItem("Wishlist", Icons.Default.Favorite, "wishlist"),
-        // Anda bisa menambahkan "Cart" di sini jika mau, atau membiarkannya
-        // BottomNavItem("Cart", Icons.Default.ShoppingCart, "cart"),
-        BottomNavItem("Chat", Icons.Default.Chat, "chat"),
-        // "Checkout" biasanya tidak ada di bottom nav, tapi tergantung desain Anda
-        BottomNavItem("Checkout", Icons.Default.Check, "checkout"),
-        BottomNavItem("Profile", Icons.Default.Person, "profile")
+        BottomNavItem(
+            title = "Home",
+            icon = Icons.Default.Home,
+            route = "dashboard"
+        ),
+        BottomNavItem(
+            title = "Riwayat", // Ganti label dari "Wishlist"
+            icon = Icons.Default.ReceiptLong, // Ganti ikon
+            route = "order_history" // Ganti route
+        ),
+        BottomNavItem(
+            title = "Chat",
+            icon = Icons.Default.Chat,
+            route = "chat"
+        ),
+        BottomNavItem(
+            title = "Profile",
+            icon = Icons.Default.Person,
+            route = "profile"
+        )
+        // Item "Checkout" dihapus karena biasanya tidak ada di navigasi utama bawah.
     )
 
-    // State untuk mengetahui route yang sedang aktif
+    // State untuk mengetahui route yang sedang aktif (tidak diubah)
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
     NavigationBar {
         bottomNavItems.forEach { item ->
             NavigationBarItem(
-                // Menandai item yang aktif
                 selected = currentRoute == item.route,
-                // Aksi ketika item diklik
                 onClick = {
                     navController.navigate(item.route) {
-                        // Logika ini mencegah tumpukan navigasi yang besar
-                        // dengan me-launch tujuan di puncak back stack.
+                        // Logika ini sudah bagus, mencegah tumpukan navigasi yang besar.
                         popUpTo(navController.graph.startDestinationId) {
                             saveState = true
                         }
@@ -55,9 +68,7 @@ fun AppBottomNavigation(navController: NavController) {
                         restoreState = true
                     }
                 },
-                // Ikon untuk item
                 icon = { Icon(item.icon, contentDescription = item.title) },
-                // Label teks untuk item
                 label = { Text(item.title) }
             )
         }
