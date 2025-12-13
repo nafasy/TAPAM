@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.tugas1.data.remote.SupabaseClient
 import com.example.tugas1.model.Profile
 import io.github.jan.supabase.gotrue.auth
-import io.github.jan.supabase.postgrest.postgrest // <-- Import dasar untuk Postgrest
+import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +13,6 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
 
 class ProfileViewModel : ViewModel() {
-    // ... (StateFlow dan init tetap sama) ...
 
     private val _profile = MutableStateFlow<Profile?>(null)
     val profile: StateFlow<Profile?> = _profile
@@ -28,30 +27,57 @@ class ProfileViewModel : ViewModel() {
         getProfile()
     }
 
+    fun resetErrorMessage() {
+        _errorMessage.value = null
+    }
+
     fun getProfile() {
         viewModelScope.launch {
             _loading.value = true
             _errorMessage.value = null
             try {
-                val userId = SupabaseClient.client.auth.currentUserOrNull()?.id
+                // 1. Mendapatkan objek user saat ini. Jika null, lempar exception.
+                val user = SupabaseClient.client.auth.currentUserOrNull()
                     ?: throw IllegalStateException("Pengguna tidak login")
 
+                val userId = user.id
+                // Menggunakan email untuk inisiasi otomatis
+                val userEmail = user.email ?: "username_baru@example.com"
+
+                // 2. Cek apakah profil sudah ada di database berdasarkan userId
                 val profileData: Profile? = SupabaseClient.client.postgrest
                     .from("profiles")
                     .select {
                         filter {
-                            // Mengakses 'eq' sebagai ekstensi dari PostgrestFilterBuilder
-                            // Ini adalah metode paling stabil.
                             eq("id", userId)
                         }
                     }
                     .decodeSingleOrNull()
-                // ... (sisanya tetap sama) ...
+
+                // 3. Jika profil belum ada (pertama kali login), buat profil baru
                 if (profileData == null) {
-                    val newProfile = Profile(id = userId, fullName = "Nama Belum Diatur", username = "username")
+
+                    val emailPrefix = userEmail.substringBefore('@')
+
+                    val defaultName = emailPrefix
+                        .replace('.', ' ')
+                        .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+
+                    val defaultUsername = emailPrefix.replace('.', '_')
+
+                    val newProfile = Profile(
+                        id = userId,
+                        fullName = defaultName,
+                        username = defaultUsername,
+                        avatarUrl = null
+                    )
+
+                    // Simpan profil default ke database
                     SupabaseClient.client.postgrest.from("profiles").insert(newProfile)
+
                     _profile.value = newProfile
                 } else {
+                    // 🛑 Jika profil sudah ada, TAMPILKAN DATA YANG SUDAH ADA.
                     _profile.value = profileData
                 }
             } catch (e: Exception) {
@@ -67,26 +93,31 @@ class ProfileViewModel : ViewModel() {
             _loading.value = true
             _errorMessage.value = null
             try {
-                val userId = SupabaseClient.client.auth.currentUserOrNull() ?: return@launch
+                // Pastikan user sedang login
+                val user = SupabaseClient.client.auth.currentUserOrNull() ?: return@launch
 
                 if (username.isBlank()) {
                     _errorMessage.value = "Username tidak boleh kosong."
+                    _loading.value = false
                     return@launch
                 }
 
                 val updates = mapOf(
+                    // 🛑 PASTIKAN NAMA KEY INI SAMA DENGAN NAMA KOLOM DI SUPABASE
                     "full_name" to fullName,
                     "username" to username
                 )
 
+                // 🛑 UPDATE DATA DI BARIS YANG ID-NYA COCOK DENGAN ID USER
                 SupabaseClient.client.postgrest.from("profiles").update(updates) {
                     filter {
-                        eq("id", userId.id) // Menggunakan eq
+                        eq("id", user.id) // Ini memastikan hanya baris user yang sedang login yang diupdate
                     }
                 }
 
-                getProfile()
+                getProfile() // Muat ulang data setelah update berhasil
             } catch (e: Exception) {
+                // Jika update gagal (seringkali karena RLS), error akan ditampilkan
                 _errorMessage.value = "Gagal memperbarui profil: ${e.message}"
             } finally {
                 _loading.value = false
@@ -111,7 +142,7 @@ class ProfileViewModel : ViewModel() {
 
                 val updates = mapOf("avatar_url" to filePath)
                 SupabaseClient.client.postgrest.from("profiles").update(updates) {
-                    filter { eq("id", userId.id) } // Menggunakan eq
+                    filter { eq("id", userId.id) }
                 }
 
                 getProfile()

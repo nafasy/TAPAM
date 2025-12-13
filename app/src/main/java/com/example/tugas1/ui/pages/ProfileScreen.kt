@@ -7,6 +7,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn // <-- Import LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells // <-- Import GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid // <-- Import LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -21,12 +25,24 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
 import com.example.tugas1.viewmodel.AuthViewModel
 import com.example.tugas1.viewmodel.ProfileViewModel
+
+// --- DATA DUMMY UNTUK STATISTIK PROFIL (Untuk Grid) ---
+data class ProfileStat(val id: Int, val count: String, val label: String)
+
+val dummyStats = listOf(
+    ProfileStat(1, "12", "Pesanan Selesai"),
+    ProfileStat(2, "4.8", "Rating Rata-rata"),
+    ProfileStat(3, "30", "Review Diberikan"),
+)
+// ------------------------------------------
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,46 +51,26 @@ fun ProfileScreen(
     authViewModel: AuthViewModel,
     profileViewModel: ProfileViewModel
 ) {
+    // ... (Semua State dan LaunchedEffect tetap sama) ...
     val profile by profileViewModel.profile.collectAsState()
     val loading by profileViewModel.loading.collectAsState()
     val errorMessage by profileViewModel.errorMessage.collectAsState()
     val isAuthenticated by authViewModel.authState.collectAsState()
     val context = LocalContext.current
-
     val snackbarHostState = remember { SnackbarHostState() }
-
-    // STATE UNTUK MENGONTROL MODE EDIT
     var isEditing by remember { mutableStateOf(false) }
-
-    // STATE UNTUK INPUT (digunakan HANYA saat isEditing = true)
     var inputFullName by remember { mutableStateOf(profile?.fullName ?: "") }
     var inputUsername by remember { mutableStateOf(profile?.username ?: "") }
 
-    // Sinkronisasi state input dengan data profile dari ViewModel
-    LaunchedEffect(profile) {
-        profile?.let {
-            inputFullName = it.fullName ?: ""
-            inputUsername = it.username ?: ""
-        }
-    }
-
-    // Tampilkan error jika ada
-    LaunchedEffect(errorMessage) {
-        errorMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            // Anda bisa tambahkan fungsi untuk mereset errorMessage di ViewModel di sini
-        }
-    }
-
-    // Navigasi jika tidak terautentikasi
+    LaunchedEffect(profile) { profile?.let { inputFullName = it.fullName ?: ""; inputUsername = it.username ?: "" } }
+    LaunchedEffect(errorMessage) { errorMessage?.let { snackbarHostState.showSnackbar(it) } }
     LaunchedEffect(isAuthenticated) {
         if (!isAuthenticated) {
-            navController.navigate("auth_graph") {
-                popUpTo("main_graph") { inclusive = true }
-            }
+            navController.navigate("auth_graph") { popUpTo("main_graph") { inclusive = true } }
         }
     }
 
+    // ... (imagePickerLauncher, avatarDisplayUrl tetap sama) ...
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri: Uri? ->
@@ -103,123 +99,113 @@ fun ProfileScreen(
                 title = { Text("Profile") },
                 actions = {
                     if (isEditing) {
-                        // TOMBOL SIMPAN
-                        IconButton(
-                            onClick = {
-                                profileViewModel.updateProfile(inputFullName, inputUsername)
-                                isEditing = false // Keluar dari mode edit setelah simpan
-                            },
-                            enabled = !loading
-                        ) {
-                            Icon(Icons.Filled.Save, contentDescription = "Simpan")
-                        }
+                        IconButton(onClick = { profileViewModel.updateProfile(inputFullName, inputUsername); isEditing = false }, enabled = !loading) { Icon(Icons.Filled.Save, contentDescription = "Simpan") }
                     } else {
-                        // TOMBOL EDIT
-                        IconButton(onClick = { isEditing = true }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit")
-                        }
+                        IconButton(onClick = { isEditing = true }) { Icon(Icons.Default.Edit, contentDescription = "Edit") }
                     }
                 }
             )
         }
     ) { paddingValues ->
-        Column(
+
+        // 🛑 MENGGANTI COLUMN DENGAN LAZYCOLUMN (Memenuhi kriteria Lazy List)
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
         ) {
-            if (loading && profile == null) {
-                CircularProgressIndicator()
-            } else {
-                Spacer(modifier = Modifier.height(16.dp))
 
-                // AREA FOTO PROFIL
-                Box(contentAlignment = Alignment.BottomEnd) {
-                    Image(
-                        painter = rememberAsyncImagePainter(model = avatarDisplayUrl),
-                        contentDescription = "Profile Picture",
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(CircleShape)
-                            .background(Color.LightGray),
-                        contentScale = ContentScale.Crop
-                    )
+            item {
+                if (loading && profile == null) {
+                    CircularProgressIndicator()
+                } else {
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    // ICON EDIT FOTO (Hanya muncul jika sedang di mode edit)
-                    if (isEditing) {
-                        Icon(
-                            imageVector = Icons.Default.CameraAlt,
-                            contentDescription = "Ganti Foto",
+                    // AREA FOTO PROFIL
+                    Box(contentAlignment = Alignment.BottomEnd) {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = avatarDisplayUrl),
+                            contentDescription = "Profile Picture",
                             modifier = Modifier
-                                .size(30.dp)
+                                .size(120.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                                .padding(6.dp)
-                                .clickable {
-                                    imagePickerLauncher.launch("image/*")
-                                },
-                            tint = Color.White
+                                .background(Color.LightGray),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        if (isEditing) {
+                            Icon(
+                                imageVector = Icons.Default.CameraAlt,
+                                contentDescription = "Ganti Foto",
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary)
+                                    .padding(6.dp)
+                                    .clickable { imagePickerLauncher.launch("image/*") },
+                                tint = Color.White
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // AREA INPUT/DISPLAY NAMA DAN USERNAME
+                    if (isEditing) {
+                        OutlinedTextField(value = inputFullName, onValueChange = { inputFullName = it }, label = { Text("Nama Lengkap") }, modifier = Modifier.fillMaxWidth())
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(value = inputUsername, onValueChange = { inputUsername = it }, label = { Text("Username") }, modifier = Modifier.fillMaxWidth())
+                    } else {
+                        Text(
+                            text = profile?.fullName ?: "Nama Belum Diatur",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "@${profile?.username ?: "username"}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+            } // End item: Header Profil
+
+            // -------------------- LAZY VERTICAL GRID UNTUK STATISTIK --------------------
+            if (!isEditing) {
+                item {
+                    // Menerapkan LazyVerticalGrid (Memenuhi kriteria Grid)
+                    Box(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) { // IntrinsicSize.Min untuk tinggi minimum
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(3),
+                            modifier = Modifier.fillMaxWidth().height(100.dp), // Batas tinggi agar LazyColumn bisa scroll
+                            verticalArrangement = Arrangement.Center,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            userScrollEnabled = false
+                        ) {
+                            items(dummyStats) { stat ->
+                                StatGridItem(stat = stat)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // AREA INPUT/DISPLAY NAMA DAN USERNAME
-                if (isEditing) {
-                    // MODE EDIT (TextFields)
-                    OutlinedTextField(
-                        value = inputFullName,
-                        onValueChange = { inputFullName = it },
-                        label = { Text("Nama Lengkap") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = inputUsername,
-                        onValueChange = { inputUsername = it },
-                        label = { Text("Username") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else {
-                    // MODE VIEW (Text Biasa)
-                    Text(
-                        text = profile?.fullName ?: "Nama Belum Diatur",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "@${profile?.username ?: "username"}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
+                // -------------------- ITEM MENU --------------------
+                item {
+                    ProfileMenuItem(icon = Icons.Default.Notifications, title = "Notification", onClick = { /* Navigasi */ })
+                    ProfileMenuItem(icon = Icons.Default.PinDrop, title = "Shipping Address", onClick = { /* Navigasi */ })
+                    ProfileMenuItem(icon = Icons.Default.Key, title = "Change Password", onClick = { /* Navigasi */ })
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // ITEM MENU (Hanya tampil di View Mode)
-                if (!isEditing) {
-                    ProfileMenuItem(
-                        icon = Icons.Default.Notifications,
-                        title = "Notification",
-                        onClick = { /* Navigasi ke notification */ }
-                    )
-                    ProfileMenuItem(
-                        icon = Icons.Default.PinDrop,
-                        title = "Shipping Address",
-                        onClick = { /* Navigasi ke address */ }
-                    )
-                    ProfileMenuItem(
-                        icon = Icons.Default.Key,
-                        title = "Change Password",
-                        onClick = { /* Navigasi ke password */ }
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    // Tombol Sign Out (Hanya tampil di View Mode)
+                item {
+                    Spacer(modifier = Modifier.height(32.dp))
+                    // Tombol Sign Out
                     Button(
                         onClick = { authViewModel.logout() },
                         modifier = Modifier.fillMaxWidth(),
@@ -232,17 +218,17 @@ fun ProfileScreen(
                             Text("Sign Out", fontSize = 16.sp, color = Color.Red)
                         }
                     }
-                }
-
-                if (isEditing) {
-                    // Spacer di mode edit untuk menjaga tata letak
                     Spacer(modifier = Modifier.height(16.dp))
+                }
+            } // End if (!isEditing)
 
-                    // Tombol Cancel di mode edit
+            // -------------------- MODE EDIT BUTTONS --------------------
+            if (isEditing) {
+                item {
+                    // Tombol Cancel
                     Button(
                         onClick = {
-                            isEditing = false // Batalkan edit
-                            // Reset input ke nilai profil saat ini
+                            isEditing = false
                             inputFullName = profile?.fullName ?: ""
                             inputUsername = profile?.username ?: ""
                         },
@@ -251,15 +237,14 @@ fun ProfileScreen(
                     ) {
                         Text("Batal")
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-        }
-    }
+            } // End if (isEditing)
+        } // End LazyColumn
+    } // End Scaffold
 }
 
-// Fungsi ProfileMenuItem (tetap sama)
+// ... (Fungsi ProfileMenuItem tetap sama) ...
 @Composable
 fun ProfileMenuItem(icon: ImageVector, title: String, onClick: () -> Unit) {
     Row(
@@ -274,5 +259,27 @@ fun ProfileMenuItem(icon: ImageVector, title: String, onClick: () -> Unit) {
         Text(text = title, style = MaterialTheme.typography.bodyLarge)
         Spacer(modifier = Modifier.weight(1f))
         Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color.Gray)
+    }
+}
+
+// 🛑 Komponen baru untuk item di dalam Grid Statistik
+@Composable
+fun StatGridItem(stat: ProfileStat) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = stat.count,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = stat.label,
+            style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center,
+            color = Color.Gray
+        )
     }
 }
