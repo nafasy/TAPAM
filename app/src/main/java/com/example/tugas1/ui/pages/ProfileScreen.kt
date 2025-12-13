@@ -9,13 +9,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,10 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
-import com.example.tugas1.data.remote.SupabaseClient
 import com.example.tugas1.viewmodel.AuthViewModel
 import com.example.tugas1.viewmodel.ProfileViewModel
-import io.github.jan.supabase.storage.storage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,8 +37,43 @@ fun ProfileScreen(
 ) {
     val profile by profileViewModel.profile.collectAsState()
     val loading by profileViewModel.loading.collectAsState()
+    val errorMessage by profileViewModel.errorMessage.collectAsState()
     val isAuthenticated by authViewModel.authState.collectAsState()
     val context = LocalContext.current
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // STATE UNTUK MENGONTROL MODE EDIT
+    var isEditing by remember { mutableStateOf(false) }
+
+    // STATE UNTUK INPUT (digunakan HANYA saat isEditing = true)
+    var inputFullName by remember { mutableStateOf(profile?.fullName ?: "") }
+    var inputUsername by remember { mutableStateOf(profile?.username ?: "") }
+
+    // Sinkronisasi state input dengan data profile dari ViewModel
+    LaunchedEffect(profile) {
+        profile?.let {
+            inputFullName = it.fullName ?: ""
+            inputUsername = it.username ?: ""
+        }
+    }
+
+    // Tampilkan error jika ada
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            // Anda bisa tambahkan fungsi untuk mereset errorMessage di ViewModel di sini
+        }
+    }
+
+    // Navigasi jika tidak terautentikasi
+    LaunchedEffect(isAuthenticated) {
+        if (!isAuthenticated) {
+            navController.navigate("auth_graph") {
+                popUpTo("main_graph") { inclusive = true }
+            }
+        }
+    }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -57,17 +87,40 @@ fun ProfileScreen(
         }
     )
 
-    LaunchedEffect(isAuthenticated) {
-        if (!isAuthenticated) {
-            navController.navigate("auth_graph") {
-                popUpTo("main_graph") { inclusive = true }
-            }
+    val avatarPath = profile?.avatarUrl
+    val avatarDisplayUrl = remember(avatarPath) {
+        if (!avatarPath.isNullOrEmpty()) {
+            profileViewModel.getAvatarPublicUrl(avatarPath)
+        } else {
+            "https://i.pravatar.cc/150"
         }
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(title = { Text("Profile") })
+            TopAppBar(
+                title = { Text("Profile") },
+                actions = {
+                    if (isEditing) {
+                        // TOMBOL SIMPAN
+                        IconButton(
+                            onClick = {
+                                profileViewModel.updateProfile(inputFullName, inputUsername)
+                                isEditing = false // Keluar dari mode edit setelah simpan
+                            },
+                            enabled = !loading
+                        ) {
+                            Icon(Icons.Filled.Save, contentDescription = "Simpan")
+                        }
+                    } else {
+                        // TOMBOL EDIT
+                        IconButton(onClick = { isEditing = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit")
+                        }
+                    }
+                }
+            )
         }
     ) { paddingValues ->
         Column(
@@ -81,27 +134,11 @@ fun ProfileScreen(
                 CircularProgressIndicator()
             } else {
                 Spacer(modifier = Modifier.height(16.dp))
+
+                // AREA FOTO PROFIL
                 Box(contentAlignment = Alignment.BottomEnd) {
-
-                    // --- PERBAIKAN DI SINI ---
-                    // State untuk menampung URL gambar yang akan ditampilkan
-                    var avatarDisplayUrl by remember { mutableStateOf<String?>(null) }
-
-                    // LaunchedEffect untuk mendapatkan URL publik saat path avatar berubah
-                    LaunchedEffect(profile?.avatarUrl) {
-                        profile?.avatarUrl?.let { path ->
-                            // Panggil nama fungsi yang benar: getAvatarPublicUrl
-                            profileViewModel.getAvatarPublicUrl(path).collect { url ->
-                                avatarDisplayUrl = url
-                            }
-                        }
-                    }
-                    // ------------------------
-
                     Image(
-                        painter = rememberAsyncImagePainter(
-                            model = avatarDisplayUrl ?: "https://i.pravatar.cc/150" // URL default
-                        ),
+                        painter = rememberAsyncImagePainter(model = avatarDisplayUrl),
                         contentDescription = "Profile Picture",
                         modifier = Modifier
                             .size(120.dp)
@@ -109,78 +146,120 @@ fun ProfileScreen(
                             .background(Color.LightGray),
                         contentScale = ContentScale.Crop
                     )
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Picture",
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                            .padding(6.dp)
-                            .clickable {
-                                imagePickerLauncher.launch("image/*")
-                            },
-                        tint = Color.White
+
+                    // ICON EDIT FOTO (Hanya muncul jika sedang di mode edit)
+                    if (isEditing) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "Ganti Foto",
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                                .padding(6.dp)
+                                .clickable {
+                                    imagePickerLauncher.launch("image/*")
+                                },
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // AREA INPUT/DISPLAY NAMA DAN USERNAME
+                if (isEditing) {
+                    // MODE EDIT (TextFields)
+                    OutlinedTextField(
+                        value = inputFullName,
+                        onValueChange = { inputFullName = it },
+                        label = { Text("Nama Lengkap") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = inputUsername,
+                        onValueChange = { inputUsername = it },
+                        label = { Text("Username") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    // MODE VIEW (Text Biasa)
+                    Text(
+                        text = profile?.fullName ?: "Nama Belum Diatur",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "@${profile?.username ?: "username"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = profile?.fullName ?: "Nama Belum Diatur",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "@${profile?.username ?: "username"}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
-                )
-
                 Spacer(modifier = Modifier.height(32.dp))
 
-                ProfileMenuItem(
-                    icon = Icons.Default.Person,
-                    title = "Edit Profile",
-                    onClick = { navController.navigate("editProfile") }
-                )
-                ProfileMenuItem(
-                    icon = Icons.Default.Notifications,
-                    title = "Notification",
-                    onClick = { navController.navigate("notification") }
-                )
-                ProfileMenuItem(
-                    icon = Icons.Default.PinDrop,
-                    title = "Shipping Address",
-                    onClick = { /* TODO */ }
-                )
-                ProfileMenuItem(
-                    icon = Icons.Default.Key,
-                    title = "Change Password",
-                    onClick = { /* TODO */ }
-                )
+                // ITEM MENU (Hanya tampil di View Mode)
+                if (!isEditing) {
+                    ProfileMenuItem(
+                        icon = Icons.Default.Notifications,
+                        title = "Notification",
+                        onClick = { /* Navigasi ke notification */ }
+                    )
+                    ProfileMenuItem(
+                        icon = Icons.Default.PinDrop,
+                        title = "Shipping Address",
+                        onClick = { /* Navigasi ke address */ }
+                    )
+                    ProfileMenuItem(
+                        icon = Icons.Default.Key,
+                        title = "Change Password",
+                        onClick = { /* Navigasi ke password */ }
+                    )
 
-                Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(1f))
 
-                Button(
-                    onClick = { authViewModel.logout() },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF0F0F0))
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Sign Out", tint = Color.Red)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Sign Out", fontSize = 16.sp, color = Color.Red)
+                    // Tombol Sign Out (Hanya tampil di View Mode)
+                    Button(
+                        onClick = { authViewModel.logout() },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF0F0F0))
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Sign Out", tint = Color.Red)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Sign Out", fontSize = 16.sp, color = Color.Red)
+                        }
                     }
                 }
+
+                if (isEditing) {
+                    // Spacer di mode edit untuk menjaga tata letak
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Tombol Cancel di mode edit
+                    Button(
+                        onClick = {
+                            isEditing = false // Batalkan edit
+                            // Reset input ke nilai profil saat ini
+                            inputFullName = profile?.fullName ?: ""
+                            inputUsername = profile?.username ?: ""
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                    ) {
+                        Text("Batal")
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
 }
 
-// Composable ProfileMenuItem tidak perlu diubah
+// Fungsi ProfileMenuItem (tetap sama)
 @Composable
 fun ProfileMenuItem(icon: ImageVector, title: String, onClick: () -> Unit) {
     Row(
@@ -194,6 +273,6 @@ fun ProfileMenuItem(icon: ImageVector, title: String, onClick: () -> Unit) {
         Spacer(modifier = Modifier.width(16.dp))
         Text(text = title, style = MaterialTheme.typography.bodyLarge)
         Spacer(modifier = Modifier.weight(1f))
-        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, tint = Color.Gray)
+        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color.Gray)
     }
 }

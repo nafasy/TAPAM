@@ -4,18 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.tugas1.data.remote.SupabaseClient
 import com.example.tugas1.model.Profile
-import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.gotrue.auth
-import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.storage.storage // <-- Pastikan import ini ada
+import io.github.jan.supabase.postgrest.postgrest // <-- Import dasar untuk Postgrest
+import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
-import kotlin.time.Duration.Companion.seconds // <-- Pastikan import ini ada
+import kotlin.time.Duration.Companion.seconds
 
-@HiltViewModel
-class ProfileViewModel @Inject constructor() : ViewModel() {
+class ProfileViewModel : ViewModel() {
+    // ... (StateFlow dan init tetap sama) ...
 
     private val _profile = MutableStateFlow<Profile?>(null)
     val profile: StateFlow<Profile?> = _profile
@@ -42,11 +40,13 @@ class ProfileViewModel @Inject constructor() : ViewModel() {
                     .from("profiles")
                     .select {
                         filter {
+                            // Mengakses 'eq' sebagai ekstensi dari PostgrestFilterBuilder
+                            // Ini adalah metode paling stabil.
                             eq("id", userId)
                         }
                     }
                     .decodeSingleOrNull()
-
+                // ... (sisanya tetap sama) ...
                 if (profileData == null) {
                     val newProfile = Profile(id = userId, fullName = "Nama Belum Diatur", username = "username")
                     SupabaseClient.client.postgrest.from("profiles").insert(newProfile)
@@ -67,16 +67,24 @@ class ProfileViewModel @Inject constructor() : ViewModel() {
             _loading.value = true
             _errorMessage.value = null
             try {
-                val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return@launch
+                val userId = SupabaseClient.client.auth.currentUserOrNull() ?: return@launch
+
+                if (username.isBlank()) {
+                    _errorMessage.value = "Username tidak boleh kosong."
+                    return@launch
+                }
+
                 val updates = mapOf(
                     "full_name" to fullName,
                     "username" to username
                 )
+
                 SupabaseClient.client.postgrest.from("profiles").update(updates) {
                     filter {
-                        eq("id", userId)
+                        eq("id", userId.id) // Menggunakan eq
                     }
                 }
+
                 getProfile()
             } catch (e: Exception) {
                 _errorMessage.value = "Gagal memperbarui profil: ${e.message}"
@@ -86,14 +94,14 @@ class ProfileViewModel @Inject constructor() : ViewModel() {
         }
     }
 
-    // --- TAMBAHKAN FUNGSI BARU DI SINI ---
     fun uploadAvatar(imageBytes: ByteArray) {
         viewModelScope.launch {
             _loading.value = true
             _errorMessage.value = null
             try {
-                val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return@launch
-                val filePath = "$userId/avatar.png"
+                val userId = SupabaseClient.client.auth.currentUserOrNull() ?: return@launch
+
+                val filePath = "${userId.id}/avatar.png"
 
                 SupabaseClient.client.storage.from("avatars").upload(
                     path = filePath,
@@ -103,7 +111,7 @@ class ProfileViewModel @Inject constructor() : ViewModel() {
 
                 val updates = mapOf("avatar_url" to filePath)
                 SupabaseClient.client.postgrest.from("profiles").update(updates) {
-                    filter { eq("id", userId) }
+                    filter { eq("id", userId.id) } // Menggunakan eq
                 }
 
                 getProfile()
@@ -115,18 +123,7 @@ class ProfileViewModel @Inject constructor() : ViewModel() {
         }
     }
 
-    fun getAvatarPublicUrl(path: String): StateFlow<String?> {
-        val urlState = MutableStateFlow<String?>(null)
-        viewModelScope.launch {
-            try {
-                // Menggunakan objek Duration (..seconds)
-                val url = SupabaseClient.client.storage.from("avatars").createSignedUrl(path, 300.seconds)
-                urlState.value = url
-            } catch (e: Exception) {
-                urlState.value = null
-            }
-        }
-        return urlState
+    fun getAvatarPublicUrl(path: String): String {
+        return SupabaseClient.client.storage.from("avatars").publicUrl(path)
     }
-    // -------------------------------------
 }

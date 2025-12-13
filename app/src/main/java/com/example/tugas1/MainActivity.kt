@@ -83,13 +83,6 @@ fun MyApp() {
                     )
                 }
 
-                composable("editProfile") {
-                    EditProfileScreen(
-                        navController = navController,
-                        profileViewModel = profileViewModel
-                    )
-                }
-
                 composable("notification") {
                     NotificationScreen(navController)
                 }

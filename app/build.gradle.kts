@@ -1,8 +1,11 @@
 plugins {
     id("com.android.application")
     kotlin("android")
-    kotlin("plugin.compose") // versi otomatis sesuai project
+    kotlin("plugin.compose")
     kotlin("kapt")
+    kotlin("plugin.serialization")
+
+
 }
 
 android {
@@ -42,7 +45,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.3" // versi kompatibel dengan Compose BOM 2025.12.00
+        kotlinCompilerExtensionVersion = "1.5.3"
     }
 }
 
@@ -79,5 +82,6 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
 }
