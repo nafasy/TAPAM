@@ -137,16 +137,16 @@ fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) ->
                     painter = painterResource(id = R.drawable.logo), // Ganti 'hm_logo' dengan nama file Anda
                     contentDescription = "H&M Logo",
                     modifier = Modifier
-                        .height(50.dp) // Atur tinggi logo sesuai keinginan Anda
+                        .height(100.dp) // Atur tinggi logo sesuai keinginan Anda
                         .fillMaxWidth(),
                     contentScale = ContentScale.Fit // Gunakan ContentScale.Fit agar logo tidak terpotong
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
-                // Tombol "Read More"
-                OutlinedButton(onClick = { /*TODO*/ }) {
-                    Text("READ MORE")
-                }
+//                Spacer(modifier = Modifier.height(16.dp))
+//                // Tombol "Read More"
+//                OutlinedButton(onClick = { /*TODO*/ }) {
+//                    Text("READ MORE")
+//                }
             }
         }
 
@@ -161,13 +161,13 @@ fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) ->
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "NEW ARRIVALS",
+                    text = "SALE DIMULAI SEKARANG",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+                    text = "Promosi berlaku untuk item tertentu selama persediaan masih ada. Barang dalam promosi ini tidak dapat dikembalikan atau ditukar. Berlaku online dan di toko hingga 14 Desember.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray,
                     textAlign = TextAlign.Center,
@@ -223,10 +223,7 @@ fun DashboardContent(modifier: Modifier = Modifier, onProductClick: (Product) ->
                     color = Color.Gray,
                     textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedButton(onClick = { /*TODO*/ }) {
-                    Text("READ MORE")
-                }
+
             }
         }
     }

@@ -1,3 +1,4 @@
+
 package com.example.tugas1
 
 import android.os.Bundle
@@ -79,13 +80,6 @@ fun MyApp() {
                     ProfileScreen(
                         navController = navController,
                         authViewModel = authViewModel,
-                        profileViewModel = profileViewModel
-                    )
-                }
-
-                composable("editProfile") {
-                    EditProfileScreen(
-                        navController = navController,
                         profileViewModel = profileViewModel
                     )
                 }
